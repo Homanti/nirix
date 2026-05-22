@@ -1,41 +1,51 @@
 use std::path::PathBuf;
 use gpui::*;
-use crate::app::NaviView;
+use gpui::prelude::FluentBuilder;
+use gpui_component::{IndexPath};
+use gpui_component::label::Label;
+use gpui_component::list::{ListItem, ListState};
+use crate::app::{FileList, FileListEvent};
+use crate::components::drag_label::DragLabel;
 
-pub fn file_item(index: usize, path: PathBuf, is_selected: bool, view: WeakEntity<NaviView>) -> Stateful<Div> {
-    let label = path
+pub fn file_item(
+    state: &mut FileList,
+    ix: IndexPath,
+    item: PathBuf,
+    cx: &mut Context<ListState<FileList>>,
+) -> ListItem {
+    let label = item
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("/")
         .to_string();
+    
+    let is_dragged = state.dragging_index.as_ref() == Some(&ix);
+    let is_drag_over = state.drag_over_index.as_ref() == Some(&ix);
 
-    div()
-        .id(format!("{}-{}", index, label))
-        .w_full()
-        .px_2()
+    ListItem::new(ix.clone())
+        .selected(Some(ix.clone()) == state.selected_index)
+        .py_2()
+        .opacity(if is_dragged { 0.45 } else { 1.0 })
         .child(
             div()
-                .id(format!("{}-{}", index, label))
-                .cursor_pointer()
-                .text_color(rgb(0xffffff))
-                .px_2()
-                .py_1()
-                .on_click(move |event, window, app| {
-                    if event.click_count() == 2 {
-                        let _ = view.update(app, |this, cx| {
-                            this.open_path(path.clone(), cx, window);
-                        });
-                    } else {
-                        let _ = view.update(app, |this, _cx| {
-                            this.file_list.selected_index = Some(index);
-                        });
+                .id(format!("{label}-{ix}"))
+                .size_full()
+                .when(is_drag_over, |this| this.bg(rgb(0x2f3340)))
+                .on_click(cx.listener({
+                    let item = item.clone();
+                    move |_view, event: &ClickEvent, _window, cx| {
+                        if event.click_count() == 2 {
+                            cx.emit(FileListEvent::Open(item.clone()));
+                        }
                     }
+                }))
+                .on_drag(state.clone(), move |_dragged_data, _offset, _window, cx| {
+                    cx.new(|_| {
+                        DragLabel {
+                            ix: ix,
+                        }
+                    })
                 })
-                .w_full()
-                .hover(|style| if !is_selected {style.bg(rgb(0x505050))} else {style.bg(rgba(0x00000000))})
-                .border_2()
-                .rounded(px(8.))
-                .border_color(if is_selected {rgb(0x505050)} else {rgba(0x00000000)})
-                .child(label)
+                .child(Label::new(label)),
         )
 }

@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 use std::process::Command;
-use std::rc::Rc;
-use std::sync::Arc;
 use gpui::*;
 use gpui_component::input::InputState;
-use gpui_component::{Root, Theme, ThemeConfig, ThemeMode};
+use gpui_component::{IndexPath, Root, Theme, ThemeRegistry};
 use gpui_component::input::{InputEvent};
+use gpui_component::list::{ListDelegate, ListItem, ListState};
 use gpui_platform::application;
 use navi_core::list_files;
+use crate::components::file_item::file_item;
 use crate::screens::browser::browser;
 
 #[derive(Debug, Default)]
@@ -18,27 +18,69 @@ enum Screens {
 
 #[derive(Debug, Clone)]
 pub struct FileList {
-    pub list_state: ListState,
-    pub items: Arc<[PathBuf]>,
-    pub selected_index: Option<usize>,
+    pub items: Vec<PathBuf>,
+    pub selected_index: Option<IndexPath>,
+
+    pub dragging_index: Option<IndexPath>,
+    pub drag_over_index: Option<IndexPath>,
+
+    pub is_dragging: bool,
+}
+
+#[derive(Clone, Debug)]
+pub enum FileListEvent {
+    Open(PathBuf),
+    Move { from: IndexPath, to: IndexPath },
+    ClearDrag,
+}
+
+impl EventEmitter<FileListEvent> for ListState<FileList> {}
+
+impl FileList {
+    pub fn move_item(&mut self, from: usize, to: usize) {
+        if from == to || from >= self.items.len() || to >= self.items.len() {
+            return;
+        }
+
+        let item = self.items.remove(from);
+        self.items.insert(to, item);
+    }
+}
+
+impl ListDelegate for FileList {
+    type Item = ListItem;
+
+    fn items_count(&self, _section: usize, _cx: &App) -> usize {
+        self.items.len()
+    }
+
+    fn render_item(&mut self, ix: IndexPath, _window: &mut Window, cx: &mut Context<ListState<Self>>) -> Option<ListItem> {
+        self.items.get(ix.row).cloned().map(|item| {
+            file_item(self, ix, item, cx)
+        })
+    }
+
+    fn set_selected_index(&mut self, ix: Option<IndexPath>, _window: &mut Window, cx: &mut Context<ListState<Self>>) {
+        self.selected_index = ix;
+        cx.notify();
+    }
 }
 
 #[derive(Debug)]
 pub struct NaviView {
     screen: Screens,
-    pub navi_view: WeakEntity<NaviView>,
     pub current_dir: PathBuf,
 
-    pub file_list: FileList,
+    pub file_list: Entity<ListState<FileList>>,
     pub nav_input: Entity<InputState>,
 
-    _subscription: Subscription,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl NaviView {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let current_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
-        let paths: Arc<[PathBuf]> = list_files(&current_dir).into();
+        let paths = list_files(&current_dir).into();
 
         let nav_input = cx.new(| cx|
             InputState::new(window, cx)
@@ -46,42 +88,69 @@ impl NaviView {
         );
 
         let file_list = FileList {
-            list_state: ListState::new(paths.len(), ListAlignment::Top, px(500.)).measure_all(),
             items: paths,
             selected_index: None,
+            dragging_index: None,
+            drag_over_index: None,
+            is_dragging: false,
         };
 
-        let _subscription = cx.subscribe_in(&nav_input, window, |view, state, event, window, cx| {
-            match event {
-                InputEvent::PressEnter { .. } => {
-                    let path: PathBuf = state.read(cx).value().to_string().into();
+        let file_list = cx.new(|cx| ListState::new(file_list, window, cx));
 
-                    view.open_path(path, cx, window);
+        let _subscriptions = vec![
+            cx.subscribe_in(&nav_input, window, |view, state, event, window, cx| {
+                match event {
+                    InputEvent::PressEnter { .. } => {
+                        let path: PathBuf = state.read(cx).value().to_string().into();
+
+                        view.open_path(path, cx, window);
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
-        });
+            }),
+
+            cx.subscribe_in(&file_list, window, |view, state, event: &FileListEvent, window, cx| {
+                match event {
+                    FileListEvent::Open(path) => {
+                        view.open_path(path.to_path_buf(), cx, window);
+                    },
+
+                    FileListEvent::Move { from, to } => {
+                        let from_ix = from.row;
+                        let to_ix = to.row;
+
+                        state.update(cx, |state, _cx| {
+                            state.delegate_mut().move_item(from_ix, to_ix);
+                        })
+                    },
+
+                    FileListEvent::ClearDrag => {
+                        state.update(cx, |state, _cx| {
+                            state.delegate_mut().dragging_index = None;
+                            state.delegate_mut().drag_over_index = None;
+                        })
+                    }
+                }
+            })
+        ];
 
         Self {
             screen: Screens::Browser,
-            navi_view: WeakEntity::new_invalid(),
             file_list,
             current_dir,
             nav_input,
-            _subscription,
+            _subscriptions,
         }
     }
 
     pub fn open_path(&mut self, path: PathBuf, cx: &mut Context<Self>, window: &mut Window) {
         if path.is_dir() && path != self.current_dir {
-            let paths: Arc<[PathBuf]> = list_files(&path).into();
+            let paths = list_files(&path).into();
             self.current_dir = path;
 
-            self.file_list = FileList {
-                list_state: ListState::new(paths.len(), ListAlignment::Top, px(500.)).measure_all(),
-                items: paths,
-                selected_index: None,
-            };
+            self.file_list.update(cx, |state, _cx| {
+               state.delegate_mut().items = paths;
+            });
 
             self.nav_input.update(cx, |state, cx| {
                 state.set_value(SharedString::new(self.current_dir.to_string_lossy()), window, cx);
@@ -97,15 +166,12 @@ impl NaviView {
 }
 
 impl Render for NaviView {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        let view = self.navi_view.clone();
-
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .bg(rgb(0x000000))
             .size_full()
             .child(
                 match self.screen {
-                    Screens::Browser => browser(self, view, _cx),
+                    Screens::Browser => browser(self, cx),
                 }
             )
     }
@@ -115,14 +181,19 @@ pub fn run() {
     application().run(|cx| {
         gpui_component::init(cx);
 
-        let theme = Theme::global_mut(cx);
+        let theme_name = SharedString::from("Ayu Dark");
 
-        theme.apply_config(
-            &Rc::new(ThemeConfig {
-                mode: ThemeMode::Dark,
-                ..Default::default()
-            })
-        );
+        if let Err(err) = ThemeRegistry::watch_dir(PathBuf::from("./crates/libs/navi-ui/src/themes"), cx, move |cx| {
+            if let Some(theme) = ThemeRegistry::global(cx)
+                .themes()
+                .get(&theme_name)
+                .cloned()
+            {
+                Theme::global_mut(cx).apply_config(&theme);
+            }
+        }) {
+            eprintln!("{}", err)
+        };
 
         cx.spawn(async move |cx| {
             let window_options = WindowOptions {
@@ -135,13 +206,7 @@ pub fn run() {
             };
 
             cx.open_window(window_options, |window, cx| {
-                let view = cx.new(|_cx| NaviView::new(window, _cx));
-
-                view.update(cx, |this, _cx| {
-                    this.navi_view = view.downgrade();
-                });
-
-                cx.new(|cx| Root::new(view, window, cx))
+                cx.new(|cx| Root::new(cx.new(|_cx| NaviView::new(window, _cx)), window, cx))
             }).expect("failed to open window");
         }).detach()
     });
