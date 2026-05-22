@@ -8,31 +8,23 @@ pub fn browser(
     view: WeakEntity<NaviView>,
     _cx: &mut Context<NaviView>,
 ) -> impl IntoElement {
-    let items = state.entries.clone();
+    let items = state.file_list.items.clone();
+    let selected_index = state.file_list.selected_index;
 
     div().size_full()
         .child(
             navbar(state)
         )
         .child(
-            list(state.file_list_state.clone(), move |index, _window, _app| {
+            list(state.file_list.list_state.clone(), move |index, _window, _app| {
                 let path = items[index].clone();
-                let label = path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or("/")
-                    .to_string();
                 let view = view.clone();
+                let is_selected = Some(index) == selected_index;
 
                 div()
                     .w_full()
                     .child(
-                        file_item(label)
-                            .on_mouse_up(MouseButton::Left, move |_event, window, app| {
-                                let _ = view.update(app, |this, cx| {
-                                    this.open_path(path.clone(), cx, window);
-                                });
-                            })
+                        file_item(index, path, is_selected, view)
                     )
                     .into_any()
 

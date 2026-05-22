@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::process::Command;
+use std::rc::Rc;
 use std::sync::Arc;
 use gpui::*;
 use gpui_component::input::InputState;
-use gpui_component::Root;
+use gpui_component::{Root, Theme, ThemeConfig, ThemeMode};
 use gpui_component::input::{InputEvent};
 use gpui_platform::application;
 use navi_core::list_files;
@@ -15,27 +16,42 @@ enum Screens {
     Browser,
 }
 
+#[derive(Debug, Clone)]
+pub struct FileList {
+    pub list_state: ListState,
+    pub items: Arc<[PathBuf]>,
+    pub selected_index: Option<usize>,
+}
+
 #[derive(Debug)]
 pub struct NaviView {
     screen: Screens,
     pub navi_view: WeakEntity<NaviView>,
     pub current_dir: PathBuf,
-    pub entries: Arc<[PathBuf]>,
-    pub file_list_state: ListState,
+
+    pub file_list: FileList,
     pub nav_input: Entity<InputState>,
+
+    _subscription: Subscription,
 }
 
 impl NaviView {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let current_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
-        let entries: Arc<[PathBuf]> = list_files(&current_dir).into();
+        let paths: Arc<[PathBuf]> = list_files(&current_dir).into();
+
         let nav_input = cx.new(| cx|
             InputState::new(window, cx)
-                .default_value(SharedString::new(current_dir.to_str().unwrap()))
+                .default_value(SharedString::new(current_dir.to_string_lossy()))
         );
 
+        let file_list = FileList {
+            list_state: ListState::new(paths.len(), ListAlignment::Top, px(500.)).measure_all(),
+            items: paths,
+            selected_index: None,
+        };
 
-        cx.subscribe_in(&nav_input, window, |view, state, event, window, cx| {
+        let _subscription = cx.subscribe_in(&nav_input, window, |view, state, event, window, cx| {
             match event {
                 InputEvent::PressEnter { .. } => {
                     let path: PathBuf = state.read(cx).value().to_string().into();
@@ -44,32 +60,34 @@ impl NaviView {
                 }
                 _ => {}
             }
-        }).detach();
+        });
 
         Self {
             screen: Screens::Browser,
             navi_view: WeakEntity::new_invalid(),
-            file_list_state: ListState::new(entries.len(), ListAlignment::Top, px(500.)).measure_all(),
+            file_list,
             current_dir,
-            entries,
-            nav_input
+            nav_input,
+            _subscription,
         }
-    }
-    fn refresh(&mut self, cx: &mut Context<Self>, window: &mut Window) {
-        self.entries = list_files(&self.current_dir).into();
-        self.file_list_state = ListState::new(self.entries.len(), ListAlignment::Top, px(500.)).measure_all();
-
-        self.nav_input.update(cx, |state, cx| {
-            state.set_value(SharedString::new(self.current_dir.to_str().unwrap()), window, cx);
-        });
-
-        cx.notify();
     }
 
     pub fn open_path(&mut self, path: PathBuf, cx: &mut Context<Self>, window: &mut Window) {
         if path.is_dir() && path != self.current_dir {
+            let paths: Arc<[PathBuf]> = list_files(&path).into();
             self.current_dir = path;
-            self.refresh(cx, window);
+
+            self.file_list = FileList {
+                list_state: ListState::new(paths.len(), ListAlignment::Top, px(500.)).measure_all(),
+                items: paths,
+                selected_index: None,
+            };
+
+            self.nav_input.update(cx, |state, cx| {
+                state.set_value(SharedString::new(self.current_dir.to_string_lossy()), window, cx);
+            });
+
+            cx.notify();
         } else if path.is_file() {
             if let Err(err) = Command::new("xdg-open").arg(&path).spawn() {
                 eprintln!("failed to open path {}: {err}", path.display());
@@ -96,6 +114,15 @@ impl Render for NaviView {
 pub fn run() {
     application().run(|cx| {
         gpui_component::init(cx);
+
+        let theme = Theme::global_mut(cx);
+
+        theme.apply_config(
+            &Rc::new(ThemeConfig {
+                mode: ThemeMode::Dark,
+                ..Default::default()
+            })
+        );
 
         cx.spawn(async move |cx| {
             let window_options = WindowOptions {
