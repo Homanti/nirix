@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/apps/navi", "crates/libs/navi-ui",
+    "crates/apps/navi", "crates/libs/navi-core", "crates/libs/navi-ui",
 ]
 resolver = "3"
 
@@ -8,8 +8,14 @@ resolver = "3"
 edition = "2024"
 
 [workspace.dependencies]
-gpui = "0.2.2"
+gpui = { git = "https://github.com/zed-industries/zed", features = ["wayland"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["wayland"] }
+gpui-component = { git = "https://github.com/longbridge/gpui-component" }
+
+dirs = "6.0.0"
+
 navi-ui = { path = "crates/libs/navi-ui" }
+navi-core = { path = "crates/libs/navi-core" }
 
 [profile.dev]
 debug = "line-tables-only"

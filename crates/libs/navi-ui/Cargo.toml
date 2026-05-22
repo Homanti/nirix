@@ -5,3 +5,8 @@ edition.workspace = true
 
 [dependencies]
 gpui = { workspace = true }
+gpui_platform = { workspace = true }
+gpui-component = { workspace = true }
+
+navi-core = { workspace = true }
+dirs = { workspace = true }
