@@ -1,0 +1,9 @@
+[package]
+name = "xdg-desktop-portal-nirix"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+nirix-portal-backend = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }

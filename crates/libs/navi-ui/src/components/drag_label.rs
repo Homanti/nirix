@@ -5,12 +5,6 @@ pub struct DragLabel {
     pub ix: IndexPath,
 }
 
-impl DragLabel {
-    pub fn new(ix: IndexPath) -> Self {
-        Self { ix }
-    }
-}
-
 impl Render for DragLabel {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()

@@ -9,4 +9,6 @@ gpui_platform = { workspace = true }
 gpui-component = { workspace = true }
 
 navi-core = { workspace = true }
+
 dirs = { workspace = true }
+tokio = { workspace = true }
