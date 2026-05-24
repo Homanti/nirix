@@ -47,6 +47,8 @@ impl Render for NaviView {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
+            .overflow_hidden()
+            .relative()
             .child(
                 match self.screen {
                     Screen::Browser => self.browser.clone(),
@@ -62,17 +64,23 @@ pub fn run() {
 pub async fn run_file_chooser(request: ChooserRequest) -> Result<ChooserResult> {
     let (tx, rx) = tokio::sync::oneshot::channel();
 
-    crate::bootstrap::run_with_config(NaviConfig {
-        mode: NaviMode::FileChooser,
-        title: "Open File".into(),
-        app_id: "navi-file-chooser".to_string(),
-        chooser: Some(ChooserLaunch { request, tx }),
-        ..Default::default()
+    let thread = std::thread::spawn(move || {
+        crate::bootstrap::run_with_config(NaviConfig {
+            mode: NaviMode::FileChooser,
+            title: "Open File".into(),
+            app_id: "navi-file-chooser".to_string(),
+            chooser: Some(ChooserLaunch { request, tx }),
+            ..Default::default()
+        });
     });
 
     let result = rx
         .await
         .map_err(|e| anyhow::anyhow!("chooser channel closed before result: {e}"))?;
+
+    thread
+        .join()
+        .map_err(|_| anyhow::anyhow!("gpui thread panicked"))?;
 
     Ok(result)
 }

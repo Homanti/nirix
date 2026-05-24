@@ -64,7 +64,7 @@ impl Browser {
         if path.is_file() {
             match self.mode {
                 NaviMode::Browser => self.open_file_in_system(path),
-                NaviMode::FileChooser => self.submit_selection(path, window),
+                NaviMode::FileChooser => self.submit_selection(path, window, cx),
             }
         }
     }
@@ -110,18 +110,23 @@ impl Browser {
         }
     }
 
-    pub fn submit_selection(&mut self, path: PathBuf, window: &mut Window) {
+    pub fn submit_selection(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(chooser) = self.chooser.as_mut() {
             chooser.submit(ChooserResult::Selected(path));
-            window.remove_window();
         }
+
+        window.remove_window();
+        cx.quit();
+        cx.shutdown();
     }
 
-    pub fn _cancel_selection(&mut self, window: &mut Window) {
+    pub fn _cancel_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(chooser) = self.chooser.as_mut() {
             chooser._cancel();
-            window.remove_window();
         }
+
+        window.remove_window();
+        cx.quit();
     }
 }
 

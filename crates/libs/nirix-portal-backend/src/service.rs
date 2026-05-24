@@ -1,4 +1,4 @@
-use crate::file_chooser_backend::FileChooserBackend;
+use crate::file_chooser::FileChooserBackend;
 
 pub async fn run() -> anyhow::Result<()> {
     let file_chooser = FileChooserBackend::new();

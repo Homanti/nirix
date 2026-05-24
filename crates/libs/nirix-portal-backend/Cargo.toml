@@ -8,4 +8,3 @@ anyhow = { workspace = true }
 zbus = "5.15.0"
 
 navi-ui = { workspace = true }
-nirix-portal-core = { workspace = true }

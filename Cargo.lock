@@ -3506,17 +3506,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "navi-ui",
- "nirix-portal-core",
  "zbus",
 ]
 
 [[package]]
 name = "nirix-portal-core"
 version = "0.1.0"
-dependencies = [
- "navi-ui",
- "zbus",
-]
 
 [[package]]
 name = "nix"

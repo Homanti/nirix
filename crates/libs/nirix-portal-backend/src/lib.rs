@@ -1,4 +1,4 @@
 mod service;
-mod file_chooser_backend;
+mod file_chooser;
 
 pub use service::run;

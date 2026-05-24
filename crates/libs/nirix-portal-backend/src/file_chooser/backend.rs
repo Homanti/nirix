@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+
 use zbus::interface;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue};
-use nirix_portal_core::{parse_chooser_request, response_from_chooser};
+use crate::file_chooser::request::parse_chooser_request;
+use crate::file_chooser::response::response_from_chooser;
 
 pub struct FileChooserBackend;
 
@@ -11,17 +13,31 @@ impl FileChooserBackend {
     }
 }
 
+struct RequestContext {
+    _handle: OwnedObjectPath,
+    _app_id: String,
+    _parent_window: String,
+}
+
 #[interface(name = "org.freedesktop.impl.portal.FileChooser")]
 impl FileChooserBackend {
     async fn open_file(
         &self,
-        _handle: OwnedObjectPath,
-        _app_id: String,
-        _parent_window: String,
+        handle: OwnedObjectPath,
+        app_id: String,
+        parent_window: String,
         title: String,
         options: HashMap<String, OwnedValue>,
     ) -> zbus::fdo::Result<(u32, HashMap<String, OwnedValue>)> {
-        let request = parse_chooser_request(title, &options)?;
+        let _ctx = RequestContext {
+            _handle: handle,
+            _app_id: app_id,
+            _parent_window: parent_window,
+        };
+
+        let request = parse_chooser_request(title, &options).map_err(|e| {
+            zbus::fdo::Error::InvalidArgs(format!("invalid file chooser request: {e}"))
+        })?;
 
         let result = navi_ui::run_file_chooser(request)
             .await
