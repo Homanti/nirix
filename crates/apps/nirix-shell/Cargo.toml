@@ -1,0 +1,15 @@
+[package]
+name = "nirix-shell"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+tracing-subscriber = { workspace = true }
+tracing = { workspace = true }
+
+gpui = { workspace = true }
+gpui_platform = { workspace = true }
+gpui-component = { workspace = true }
+
+nirix-wallpaper = { workspace = true }
+nirix-bar = { workspace = true }
