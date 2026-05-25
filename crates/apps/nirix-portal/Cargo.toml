@@ -5,5 +5,14 @@ edition.workspace = true
 
 [dependencies]
 nirix-portal-backend = { workspace = true }
+navi-ui = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
+
+[[bin]]
+name = "xdg-desktop-portal-nirix"
+path = "src/main.rs"
+
+[[bin]]
+name = "navi-chooser"
+path = "src/bin/navi-chooser.rs"

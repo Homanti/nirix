@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -98,35 +97,35 @@ impl Browser {
     }
 
     fn open_file_in_system(&self, path: PathBuf) {
-        let terminal = env::var("TERMINAL").unwrap_or_else(|_| "xterm".to_string());
-
-        if let Err(err) = Command::new(terminal)
-            .arg("-e")
-            .arg("xdg-open")
+        if let Err(err) = Command::new("xdg-open")
             .arg(&path)
             .spawn()
         {
-            eprintln!("failed to spawn terminal opener: {err}");
+            eprintln!("failed to execute xdg-open: {err}");
         }
     }
 
     pub fn submit_selection(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(chooser) = self.chooser.as_mut() {
+        if let Some(mut chooser) = self.chooser.take() {
             chooser.submit(ChooserResult::Selected(path));
         }
-
         window.remove_window();
-        cx.quit();
-        cx.shutdown();
+
+        cx.defer(|cx| {
+            cx.shutdown();
+        });
     }
 
-    pub fn _cancel_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(chooser) = self.chooser.as_mut() {
-            chooser._cancel();
+    #[allow(dead_code)]
+    pub fn cancel_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(mut chooser) = self.chooser.take() {
+            chooser.cancel();
         }
-
         window.remove_window();
-        cx.quit();
+
+        cx.defer(|cx| {
+            cx.shutdown();
+        });
     }
 }
 

@@ -13,7 +13,7 @@ pub fn run_with_config(config: NaviConfig) {
     application().run(move |cx| {
         gpui_component::init(cx);
         init_theme(cx);
-        
+
         let displays = cx.displays();
         let display = displays.get(0);
 
@@ -23,44 +23,42 @@ pub fn run_with_config(config: NaviConfig) {
             .map(|display| display.bounds().size)
             .unwrap_or_else(|| Size::new(px(1920.), px(1080.)));
 
-        cx.spawn(async move |cx| {
-            let is_chooser = config.mode == NaviMode::FileChooser;
+        let is_chooser = config.mode == NaviMode::FileChooser;
 
-            let window_options = WindowOptions {
-                titlebar: Some(TitlebarOptions {
-                    title: Some(config.title.clone().into()),
-                    ..Default::default()
-                }),
-                window_bounds: Some(WindowBounds::Windowed(Bounds {
-                    origin: point(px(0.), px(0.)),
-                    size: Size::new(px(500.), px(200.)),
-                })),
-                app_id: Some(config.app_id.clone()),
-                window_background: WindowBackgroundAppearance::Transparent,
-                kind: if is_chooser {
-                    WindowKind::LayerShell(LayerShellOptions {
-                        namespace: Some(config.title.clone().to_string()).unwrap_or("navi".to_string()),
-                        anchor: Anchor::LEFT | Anchor::RIGHT | Anchor::TOP | Anchor::BOTTOM,
-                        margin: Some((px(display_size.height.as_f32() / 3f32), px(display_size.width.as_f32() / 3f32), px(display_size.height.as_f32() / 3f32), px(display_size.width.as_f32() / 3f32))),
-                        keyboard_interactivity: KeyboardInteractivity::OnDemand,
-                        ..Default::default()
-                    })
-                } else {
-                    WindowKind::Normal
-                },
+        let window_options = WindowOptions {
+            app_id: Some(config.app_id.clone()),
+            titlebar: Some(TitlebarOptions {
+                title: Some(config.title.clone().into()),
                 ..Default::default()
-            };
-
-            cx.open_window(window_options, |window, cx| {
-                cx.new(|cx| {
-                    Root::new(cx.new(|cx| NaviView::new(config, window, cx)), window, cx)
-                        .size_full()
-                        .window_shadow_size(px(0.))
+            }),
+            window_bounds: Some(WindowBounds::Windowed(Bounds {
+                origin: point(px(0.), px(0.)),
+                size: Size::new(px(500.), px(200.)),
+            })),
+            window_background: WindowBackgroundAppearance::Transparent,
+            kind: if is_chooser {
+                WindowKind::LayerShell(LayerShellOptions {
+                    namespace: Some(config.title.clone().to_string()).unwrap_or("navi".to_string()),
+                    anchor: Anchor::LEFT | Anchor::RIGHT | Anchor::TOP | Anchor::BOTTOM,
+                    margin: Some((
+                        px(display_size.height.as_f32() / 3.0),
+                        px(display_size.width.as_f32() / 3.0),
+                        px(display_size.height.as_f32() / 3.0),
+                        px(display_size.width.as_f32() / 3.0),
+                    )),
+                    keyboard_interactivity: KeyboardInteractivity::OnDemand,
+                    ..Default::default()
                 })
-            })
-                .expect("failed to open window");
-        })
-            .detach();
+            } else {
+                WindowKind::Normal
+            },
+            ..Default::default()
+        };
+
+        cx.open_window(window_options, |window, cx| {
+            let view = cx.new(|cx| NaviView::new(config, window, cx));
+            cx.new(|cx| Root::new(view, window, cx).window_shadow_size(px(0.)))
+        }).expect("failed to open window");
     });
 }
 

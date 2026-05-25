@@ -57,9 +57,6 @@ impl RenderOnce for EntryItem {
             .text_color(cx.theme().foreground)
             .items_center()
             .justify_start()
-            .on_click(move |x, x1, x2| {
-                x2.shutdown();
-            })
             .on_click(move |event, window, cx| {
                 if event.click_count() == 1 {
                     let ctrl = event.modifiers().control;

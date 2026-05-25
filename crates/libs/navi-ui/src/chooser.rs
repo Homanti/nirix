@@ -55,7 +55,7 @@ impl ChooserState {
         }
     }
 
-    pub fn _cancel(&mut self) {
+    pub fn cancel(&mut self) {
         self.submit(ChooserResult::Cancelled);
     }
 }

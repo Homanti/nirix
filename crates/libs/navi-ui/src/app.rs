@@ -64,23 +64,14 @@ pub fn run() {
 pub async fn run_file_chooser(request: ChooserRequest) -> Result<ChooserResult> {
     let (tx, rx) = tokio::sync::oneshot::channel();
 
-    let thread = std::thread::spawn(move || {
-        crate::bootstrap::run_with_config(NaviConfig {
-            mode: NaviMode::FileChooser,
-            title: "Open File".into(),
-            app_id: "navi-file-chooser".to_string(),
-            chooser: Some(ChooserLaunch { request, tx }),
-            ..Default::default()
-        });
+    crate::bootstrap::run_with_config(NaviConfig {
+        mode: NaviMode::FileChooser,
+        title: "Open File".into(),
+        app_id: "navi-file-chooser".to_string(),
+        chooser: Some(ChooserLaunch { request, tx }),
+        ..Default::default()
     });
 
-    let result = rx
-        .await
-        .map_err(|e| anyhow::anyhow!("chooser channel closed before result: {e}"))?;
-
-    thread
-        .join()
-        .map_err(|_| anyhow::anyhow!("gpui thread panicked"))?;
-
-    Ok(result)
+    rx.await
+        .map_err(|e| anyhow::anyhow!("chooser channel closed before result: {e}"))
 }

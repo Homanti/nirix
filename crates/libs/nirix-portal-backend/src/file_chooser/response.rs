@@ -4,29 +4,26 @@ use std::path::{Path, PathBuf};
 use zbus::zvariant::{OwnedValue, Value};
 
 use navi_ui::ChooserResult;
+use url::Url;
 
 pub fn path_to_file_uri(path: &Path) -> zbus::fdo::Result<String> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
     } else {
-        std::fs::canonicalize(path).map_err(|e| {
-            zbus::fdo::Error::Failed(format!(
-                "failed to canonicalize {}: {e}",
-                path.display()
-            ))
-        })?
+        let current_dir = std::env::current_dir().map_err(|e| {
+            zbus::fdo::Error::Failed(format!("failed to get current directory: {e}"))
+        })?;
+        current_dir.join(path)
     };
 
-    let s = absolute.to_string_lossy();
-
-    if !s.starts_with('/') {
-        return Err(zbus::fdo::Error::Failed(format!(
-            "path is not a unix absolute path: {}",
-            absolute.display()
-        )));
-    }
-
-    Ok(format!("file://{}", s))
+    Url::from_file_path(&absolute)
+        .map(|u| u.into())
+        .map_err(|_| {
+            zbus::fdo::Error::Failed(format!(
+                "path is not a valid absolute unix path: {}",
+                absolute.display()
+            ))
+        })
 }
 
 pub fn encode_uris<I>(paths: I) -> zbus::fdo::Result<OwnedValue>

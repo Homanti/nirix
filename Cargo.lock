@@ -3505,7 +3505,9 @@ name = "nirix-portal-backend"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-process",
  "navi-ui",
+ "url",
  "zbus",
 ]
 
@@ -7271,6 +7273,7 @@ name = "xdg-desktop-portal-nirix"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "navi-ui",
  "nirix-portal-backend",
  "tokio",
 ]
