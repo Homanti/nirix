@@ -64,9 +64,11 @@ pub fn run() {
 pub async fn run_file_chooser(request: ChooserRequest) -> Result<ChooserResult> {
     let (tx, rx) = tokio::sync::oneshot::channel();
 
+    let title = request.title.clone();
+
     crate::bootstrap::run_with_config(NaviConfig {
         mode: NaviMode::FileChooser,
-        title: "Open File".into(),
+        title: format!("File Chooser - {}", title).into(),
         app_id: "navi-file-chooser".to_string(),
         chooser: Some(ChooserLaunch { request, tx }),
         ..Default::default()
